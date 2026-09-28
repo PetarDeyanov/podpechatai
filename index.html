@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2140a8">
+<meta name="description" content="Поставя печат и подпис върху PDF документ – без принтер и скенер.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Подпечатай">
+<title>Подпечатай PDF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#eceff5; --surface:#ffffff; --surface-2:#f5f6fa; --text:#141a2e; --muted:#586078;
+  --line:#d3d8e4; --ink:#2140a8; --ink-strong:#172f80; --on-ink:#ffffff; --ink-soft:rgba(33,64,168,.10);
+  --mark:#c68610; --danger:#b3261e; --paper:#ffffff; --paper-text:#1b1f2a;
+  --shadow:0 1px 2px rgba(20,26,46,.08),0 8px 22px rgba(20,26,46,.08);
+  --radius:12px;
+  --font:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1220; --surface:#171c2c; --surface-2:#1e2438; --text:#e6e9f2; --muted:#9aa3bb;
+    --line:#2c3450; --ink:#8ea4ff; --ink-strong:#b8c6ff; --on-ink:#0e1220; --ink-soft:rgba(142,164,255,.14);
+    --mark:#e3a93a; --danger:#ff8a80;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1220; --surface:#171c2c; --surface-2:#1e2438; --text:#e6e9f2; --muted:#9aa3bb;
+  --line:#2c3450; --ink:#8ea4ff; --ink-strong:#b8c6ff; --on-ink:#0e1220; --ink-soft:rgba(142,164,255,.14);
+  --mark:#e3a93a; --danger:#ff8a80;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);
+  display:flex;align-items:center;gap:12px;padding-block:calc(12px + env(safe-area-inset-top,0px)) 12px;padding-inline:16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand svg{flex:none;width:34px;height:34px;color:var(--ink)}
+.brand h1{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.brand p{margin:0;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand div{min-width:0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:10px;
+  min-height:44px;padding:0 16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.btn.primary:hover{background:var(--ink-strong);border-color:var(--ink-strong)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--danger)}
+.btn.danger:hover{border-color:var(--danger)}
+
+/* stamp tray */
+.tray{padding-inline:16px;padding-block:14px 6px;max-width:940px;margin:0 auto}
+.tray-label{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 8px}
+.tray-label h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tray-label small{color:var(--muted);font-size:12px;text-align:right}
+.tray-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.chip{flex:none;display:flex;align-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:4px;max-width:260px}
+.chip.active{border-color:var(--ink);background:var(--ink-soft)}
+.chip.armed{border-color:var(--danger)}
+.chip-pick{appearance:none;border:0;background:none;display:flex;align-items:center;gap:8px;padding:0 6px 0 0;cursor:pointer;min-width:0;min-height:44px}
+.chip-pick img{width:44px;height:44px;object-fit:contain;border-radius:50%;background:#fff}
+.chip-pick img.wide{width:72px;border-radius:8px;padding:2px 4px}
+.chip-pick span{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip-del{appearance:none;border:0;background:none;color:var(--muted);min-width:32px;height:32px;border-radius:999px;cursor:pointer;font-size:18px;line-height:1;padding:0 8px}
+.chip-del:hover{background:var(--surface-2);color:var(--danger)}
+.chip.armed .chip-del{color:var(--danger);font-size:13px;font-weight:600}
+.chip.add{appearance:none;cursor:pointer;border-style:dashed;padding:0 16px;min-height:54px;font-weight:600;color:var(--ink);gap:8px}
+.chip.add:hover{border-color:var(--ink)}
+.chip.add.pulse{animation:pulse .9s ease 2}
+@keyframes pulse{50%{background:var(--ink-soft);border-color:var(--ink)}}
+
+/* document */
+.doc{max-width:940px;margin:0 auto;padding-inline:16px;padding-block:8px calc(120px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px;align-items:center}
+.page{position:relative;width:100%;max-width:860px;background:var(--paper);box-shadow:var(--shadow);border-radius:3px;overflow:hidden}
+.page canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.overlay{position:absolute;inset:0;cursor:crosshair}
+.pno{position:absolute;right:8px;bottom:6px;font:500 11px var(--mono);color:#7a8196;background:rgba(255,255,255,.85);padding:1px 6px;border-radius:6px;pointer-events:none}
+.hit{position:absolute;border:2px dashed var(--mark);border-radius:4px;pointer-events:none;background:rgba(230,168,0,.08)}
+.stamp{position:absolute;transform:translate(-50%,-50%);touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;max-width:none}
+.stamp.sel{outline:2px dashed var(--ink);outline-offset:3px;border-radius:50%}
+.stamp.sel.wide{border-radius:6px}
+.stamp:active{cursor:grabbing}
+
+/* sample page */
+.sample{aspect-ratio:210/297;container-type:inline-size;color:var(--paper-text)}
+.sample-tag{position:absolute;top:10px;right:10px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6a7187;border:1px solid #d7dbe6;border-radius:999px;padding:2px 10px;background:#fff}
+.sample-body{position:absolute;inset:11% 12% 10%;font-size:max(9px,2.7cqw);line-height:1.6;font-family:Arial,var(--font)}
+.sample-body p{margin:0 0 1.2em}
+.s-title{font-weight:700;font-size:1.35em;letter-spacing:.06em;margin-bottom:1.6em!important}
+.s-sign{margin-top:3em!important;display:flex;align-items:flex-end;gap:.6em}
+.s-box{display:inline-grid;place-items:center;width:30cqw;height:9cqw;border:2px dashed #2140a8;border-radius:6px;color:#2140a8;font-size:.85em;font-weight:600;margin-bottom:-.4em}
+.s-mp{position:relative;display:flex;align-items:center;gap:2em}
+.s-ring{width:19cqw;height:19cqw;border:2px dashed #2140a8;border-radius:50%;display:grid;place-items:center;color:#2140a8;font-size:.85em;font-weight:600;text-align:center;line-height:1.2;margin-top:-6cqw}
+.intro{max-width:860px;width:100%;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0}
+.intro li{list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+.intro b{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ink-soft);color:var(--ink);font-size:13px}
+.intro span{font-size:14px;color:var(--text)}
+.intro em{font-style:normal;color:var(--muted);display:block;font-size:12.5px;margin-top:2px}
+.loading{color:var(--muted);padding:40px 0}
+
+/* bottom bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
+  padding-inline:16px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 18px rgba(20,26,46,.06)}
+.bar-inner{max-width:940px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hint{margin:0;flex:1;min-width:0;color:var(--muted);font-size:14px}
+.sel-controls{flex:1;display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.step{appearance:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;font-size:20px;line-height:1}
+.step:hover{border-color:var(--ink)}
+#size{flex:1;min-width:90px;accent-color:var(--ink)}
+#sizeOut{font:500 14px var(--mono);min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
+.actions{margin-left:auto;display:flex;gap:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:40;
+  background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (max-width:520px){
+  .brand p{display:none}
+  .top .btn{padding:0 12px}
+  .actions{flex:1 0 100%}
+  .actions .btn{flex:1;justify-content:center}
+  .tray-label small{display:none}
+}
+@media (prefers-reduced-motion:reduce){.chip.add.pulse{animation:none}.toast{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="20" cy="20" r="17.5" stroke-width="2.2"/><circle cx="20" cy="20" r="15.3" stroke-width="1"/><circle cx="20" cy="20" r="9" stroke-width="1.4"/><circle cx="20" cy="20" r="2.6" fill="currentColor" stroke="none"/></svg>
+    <div><h1>Подпечатай PDF</h1><p id="docName">Печат и подпис върху документ, без принтер</p></div>
+  </div>
+  <button class="btn" id="openBtn" type="button">Отвори PDF</button>
+  <input class="vh" type="file" id="pdfInput" accept="application/pdf,.pdf" tabindex="-1" aria-hidden="true">
+</header>
+
+<section class="tray" aria-labelledby="trayTitle">
+  <div class="tray-label"><h2 id="trayTitle">Печати и подписи</h2><small id="trayNote">Пазят се само на това устройство</small></div>
+  <div class="tray-row" id="tray"></div>
+  <input class="vh" type="file" id="stampInput" accept="image/*" tabindex="-1" aria-hidden="true">
+</section>
+
+<main class="doc" id="doc">
+  <ol class="intro" id="intro">
+    <li><b>1</b><span>Добави печат или подпис<em>PNG файловете от папка „Дигитален печат“</em></span></li>
+    <li><b>2</b><span>Отвори PDF<em>Показва се страницата с „М.П.“ и „Подпис“</em></span></li>
+    <li><b>3</b><span>Докосни мястото и запази<em>Влачи, за да местиш; размерът е в mm</em></span></li>
+  </ol>
+  <div class="page sample" aria-label="Пример за документ">
+    <span class="sample-tag">Пример</span>
+    <div class="sample-body">
+      <p class="s-title">ДЕКЛАРАЦИЯ</p>
+      <p>Долуподписаният, в качеството си на управител на дружеството, декларирам, че посочените по-горе обстоятелства са верни.</p>
+      <p>Дата: 28.09.2026 г.<br>гр. София</p>
+      <p class="s-sign">Управител: <span class="s-box">подпис</span></p>
+      <p class="s-mp">М.П. <span class="s-ring">тук<br>печатът</span></p>
+    </div>
+  </div>
+</main>
+
+<footer class="bar">
+  <div class="bar-inner">
+    <div class="sel-controls" id="selControls" hidden>
+      <button class="step" id="smaller" type="button" aria-label="По-малко">−</button>
+      <input type="range" id="size" min="15" max="80" step="1" value="40" aria-label="Ширина в милиметри">
+      <button class="step" id="bigger" type="button" aria-label="По-голямо">+</button>
+      <output id="sizeOut" for="size">40 mm</output>
+      <button class="btn ghost danger" id="removeBtn" type="button">Махни</button>
+    </div>
+    <p class="hint" id="hint">Добави печат и отвори PDF.</p>
+    <div class="actions">
+      <button class="btn" id="shareBtn" type="button" disabled hidden>Сподели</button>
+      <button class="btn primary" id="saveBtn" type="button" disabled>Запази PDF</button>
+    </div>
+  </div>
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+(() => {
+  const PT_PER_MM = 72 / 25.4, DEFAULT_MM = 40, MIN_MM = 15, MAX_MM = 80;
+  const KEY = 'podpechatai.stamps.v1';
+  const $ = s => document.querySelector(s);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const S = { stamps: [], active: null, bytes: null, name: '', pdf: null, pages: [], placed: [], sel: null };
+
+  // ---------- stamps (per-browser storage) ----------
+  function loadStamps() {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (v && Array.isArray(v.stamps)) { S.stamps = v.stamps; S.active = v.active; }
+    } catch (e) {}
+    if (!S.stamps.find(s => s.id === S.active)) S.active = S.stamps[0] ? S.stamps[0].id : null;
+  }
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify({ stamps: S.stamps, active: S.active })); return true; }
+    catch (e) { return false; }
+  }
+  const stampById = id => S.stamps.find(s => s.id === id);
+  const isWide = st => st && st.aspect < 0.75;            // signatures are wide, stamps are round
+  const defaultMm = st => isWide(st) ? 45 : DEFAULT_MM;
+
+  function renderTray() {
+    const tray = $('#tray');
+    tray.textContent = '';
+    for (const s of S.stamps) {
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (s.id === S.active ? ' active' : '');
+      const pick = document.createElement('button');
+      pick.type = 'button'; pick.className = 'chip-pick';
+      pick.setAttribute('aria-pressed', String(s.id === S.active));
+      const img = new Image(); img.alt = ''; img.src = s.src; if (isWide(s)) img.className = 'wide';
+      const span = document.createElement('span'); span.textContent = s.name;
+      pick.append(img, span);
+      pick.addEventListener('click', () => { S.active = s.id; persist(); renderTray(); updateBar(); });
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'chip-del'; del.textContent = '×';
+      del.setAttribute('aria-label', 'Премахни ' + s.name);
+      del.addEventListener('click', () => {
+        if (chip.classList.contains('armed')) return removeStamp(s.id);
+        chip.classList.add('armed'); del.textContent = 'Махни?';
+        setTimeout(() => { if (del.isConnected) { chip.classList.remove('armed'); del.textContent = '×'; } }, 3000);
+      });
+      chip.append(pick, del);
+      tray.append(chip);
+    }
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'chip add'; add.id = 'addStamp';
+    add.textContent = S.stamps.length ? '+ Добави още' : '+ Добави печат или подпис';
+    add.addEventListener('click', () => $('#stampInput').click());
+    tray.append(add);
+  }
+
+  function removeStamp(id) {
+    const used = S.placed.filter(p => p.stampId === id).length;
+    S.stamps = S.stamps.filter(s => s.id !== id);
+    S.placed = S.placed.filter(p => p.stampId !== id);
+    if (S.active === id) S.active = S.stamps[0] ? S.stamps[0].id : null;
+    if (S.sel && !S.placed.find(p => p.id === S.sel)) S.sel = null;
+    persist(); renderTray(); redrawAll(); updateBar();
+    toast(used ? 'Премахнат е и от документа.' : 'Премахнат е от това устройство.');
+  }
+
+  const readDataURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+  const loadImage = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+
+  async function importStamp(file) {
+    let img;
+    try { img = await loadImage(await readDataURL(file)); }
+    catch (e) { return toast('Това не е изображение. Избери PNG файла на печата или подписа.'); }
+    const k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
+    const data = g.getImageData(0, 0, w, h), d = data.data;
+    let hasAlpha = false;
+    for (let i = 3; i < d.length; i += 4) if (d[i] < 250) { hasAlpha = true; break; }
+    if (!hasAlpha) { // scan on white paper: make the paper transparent
+      for (let i = 0; i < d.length; i += 4) {
+        const m = Math.min(d[i], d[i + 1], d[i + 2]);
+        d[i + 3] = Math.round(clamp((235 - m) / 135, 0, 1) * 255);
+      }
+      g.putImageData(data, 0, 0);
+    }
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return toast('Изображението е празно.');
+    const out = document.createElement('canvas'); out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+    out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+    const s = { id: uid(), name: file.name.replace(/\.[^.]+$/, '') || 'Печат', src: out.toDataURL('image/png'),
+                aspect: out.height / out.width };
+    s.mm = defaultMm(s);
+    S.stamps.push(s); S.active = s.id;
+    const kept = persist();
+    renderTray(); updateBar();
+    toast(kept ? `„${s.name}“ е добавен.` : `„${s.name}“ е добавен само за тази сесия (устройството не позволи запазване).`);
+  }
+
+  // ---------- PDF ----------
+  const HIT_RE = /(М\.\s?П\.|M\.\s?P\.|L\.\s?S\.)/iu;
+  const WORD_RE = /(?<!\p{L})(печат|подпис|stamp|seal|signature)(?!\p{L})/iu;
+
+  function findHits(tc, vp) {
+    const hits = [];
+    for (const it of tc.items) {
+      const str = (it.str || '').trim();
+      if (!str || !(HIT_RE.test(str) || (str.length <= 40 && WORD_RE.test(str)))) continue;
+      const [a, b, c, d, e, f] = it.transform;
+      const la = Math.hypot(a, b) || 1, lc = Math.hypot(c, d) || la;
+      const ux = a / la, uy = b / la, vx = c / lc, vy = d / lc, w = it.width, fs = lc;
+      const pts = [[e, f], [e + ux * w, f + uy * w], [e + vx * fs, f + vy * fs], [e + ux * w + vx * fs, f + uy * w + vy * fs]]
+        .map(([x, y]) => vp.convertToViewportPoint(x, y));
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      hits.push({ x0: Math.min(...xs) / vp.width, y0: Math.min(...ys) / vp.height, x1: Math.max(...xs) / vp.width, y1: Math.max(...ys) / vp.height });
+    }
+    return hits;
+  }
+
+  const io = new IntersectionObserver(entries => {
+    for (const en of entries) {
+      const info = en.target._info;
+      if (en.isIntersecting) renderPage(info);
+      else if (info.rendered) { info.canvas.width = 0; info.canvas.height = 0; info.rendered = false; }
+    }
+  }, { rootMargin: '900px 0px' });
+
+  async function renderPage(info) {
+    if (info.rendered || info.rendering) return;
+    info.rendering = true;
+    try {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const scale = (info.el.clientWidth * dpr) / info.vp.width;
+      const v = info.page.getViewport({ scale });
+      info.canvas.width = Math.floor(v.width); info.canvas.height = Math.floor(v.height);
+      await info.page.render({ canvasContext: info.canvas.getContext('2d'), viewport: v }).promise;
+      info.rendered = true;
+    } catch (e) { /* page stays blank; stamping still works */ }
+    info.rendering = false;
+  }
+
+  async function openPdf(file) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let pdf;
+    try { pdf = await pdfjsLib.getDocument({ data: buf.slice() }).promise; }
+    catch (e) {
+      return toast(e && e.name === 'PasswordException' ? 'PDF-ът е заключен с парола. Отключи го и опитай пак.' : 'Не мога да отворя този файл като PDF.');
+    }
+    if (S.pdf) S.pdf.destroy();
+    S.pdf = pdf; S.bytes = buf; S.name = file.name.replace(/\.pdf$/i, '');
+    S.pages = []; S.placed = []; S.sel = null;
+    $('#docName').textContent = file.name;
+    const doc = $('#doc'); doc.textContent = '';
+    io.disconnect();
+    for (let i = 0; i < pdf.numPages; i++) {
+      const page = await pdf.getPage(i + 1);
+      const vp = page.getViewport({ scale: 1 });
+      const el = document.createElement('div');
+      el.className = 'page'; el.style.aspectRatio = `${vp.width} / ${vp.height}`;
+      const canvas = document.createElement('canvas');
+      const overlay = document.createElement('div'); overlay.className = 'overlay';
+      const pno = document.createElement('span'); pno.className = 'pno'; pno.textContent = `${i + 1} / ${pdf.numPages}`;
+      el.append(canvas, overlay, pno);
+      const info = { i, page, vp, rotate: page.rotate, el, canvas, overlay, rendered: false, rendering: false, hits: [] };
+      el._info = info;
+      overlay.addEventListener('click', e => onPageTap(info, e));
+      S.pages.push(info); doc.append(el); io.observe(el);
+    }
+    let target = S.pages[S.pages.length - 1];
+    for (const info of S.pages) {
+      try { info.hits = findHits(await info.page.getTextContent(), info.vp); } catch (e) { info.hits = []; }
+      for (const h of info.hits) {
+        const d = document.createElement('div'); d.className = 'hit';
+        Object.assign(d.style, { left: (h.x0 * 100 - 0.6) + '%', top: (h.y0 * 100 - 0.4) + '%', width: ((h.x1 - h.x0) * 100 + 1.2) + '%', height: ((h.y1 - h.y0) * 100 + 0.8) + '%' });
+        info.overlay.append(d);
+      }
+      if (info.hits.length) target = info;
+    }
+    updateBar();
+    if (S.pages.length > 1) {
+      const h = target.hits[target.hits.length - 1];
+      const r = target.el.getBoundingClientRect();
+      const y = window.scrollY + r.top + (h ? h.y0 * r.height : 0) - window.innerHeight * 0.4;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'instant' in window ? 'instant' : 'auto' });
+    }
+    const hitCount = S.pages.reduce((n, p) => n + p.hits.length, 0);
+    toast(hitCount ? 'Жълтите рамки показват „М.П.“ и „Подпис“ в документа.' : `Отворен: ${pdf.numPages} стр.`);
+  }
+
+  // ---------- placing ----------
+  function onPageTap(info, e) {
+    if (e.target.closest('.stamp')) return;
+    if (S.sel) { select(null); return; }
+    const st = stampById(S.active);
+    if (!st) {
+      toast('Първо добави печат или подпис.');
+      const add = $('#addStamp'); add.classList.remove('pulse'); void add.offsetWidth; add.classList.add('pulse');
+      return;
+    }
+    const r = info.overlay.getBoundingClientRect();
+    const p = { id: uid(), page: info.i, fx: (e.clientX - r.left) / r.width, fy: (e.clientY - r.top) / r.height, mm: st.mm || defaultMm(st), stampId: st.id };
+    S.placed.push(p); drawStamp(p); select(p.id);
+  }
+
+  function drawStamp(p) {
+    const info = S.pages[p.page], st = stampById(p.stampId);
+    let el = info.overlay.querySelector(`.stamp[data-id="${p.id}"]`);
+    if (!el) {
+      el = new Image(); el.className = 'stamp'; el.dataset.id = p.id; el.alt = st.name; el.draggable = false; el.src = st.src;
+      attachDrag(el, p); info.overlay.append(el);
+    }
+    el.style.left = (p.fx * 100) + '%';
+    el.style.top = (p.fy * 100) + '%';
+    el.style.width = (p.mm * PT_PER_MM / info.vp.width * 100) + '%';
+    el.classList.toggle('sel', S.sel === p.id);
+    el.classList.toggle('wide', isWide(st));
+  }
+
+  function redrawAll() {
+    for (const info of S.pages) info.overlay.querySelectorAll('.stamp').forEach(n => n.remove());
+    S.placed.forEach(drawStamp);
+  }
+
+  function attachDrag(el, p) {
+    el.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      select(p.id);
+      el.setPointerCapture(e.pointerId);
+      const r = el.parentElement.getBoundingClientRect();
+      const sx = e.clientX, sy = e.clientY, fx0 = p.fx, fy0 = p.fy;
+      const move = ev => { p.fx = clamp(fx0 + (ev.clientX - sx) / r.width, 0, 1); p.fy = clamp(fy0 + (ev.clientY - sy) / r.height, 0, 1); drawStamp(p); };
+      const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); };
+      el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    });
+    el.addEventListener('click', e => e.stopPropagation());
+  }
+
+  function select(id) {
+    S.sel = id;
+    document.querySelectorAll('.stamp').forEach(n => n.classList.toggle('sel', n.dataset.id === id));
+    updateBar();
+  }
+
+  function setSize(mm) {
+    const p = S.placed.find(x => x.id === S.sel); if (!p) return;
+    p.mm = clamp(Math.round(mm), MIN_MM, MAX_MM);
+    const st = stampById(p.stampId); if (st) { st.mm = p.mm; persist(); }
+    drawStamp(p); updateBar();
+  }
+
+  function updateBar() {
+    const p = S.placed.find(x => x.id === S.sel);
+    $('#selControls').hidden = !p; $('#hint').hidden = !!p;
+    if (p) { $('#size').value = p.mm; $('#sizeOut').textContent = p.mm + ' mm'; }
+    const n = S.placed.length;
+    $('#saveBtn').disabled = !n || !S.pdf;
+    $('#shareBtn').hidden = !canShareFiles; $('#shareBtn').disabled = !n || !S.pdf;
+    $('#saveBtn').textContent = n > 1 ? `Запази PDF (${n})` : 'Запази PDF';
+    const cur = stampById(S.active);
+    $('#hint').textContent = !S.stamps.length ? 'Добави печат или подпис и отвори PDF.'
+      : !S.pdf ? 'Отвори PDF, който да подпечаташ.'
+      : n ? 'Докосни поставеното, за да го местиш или смениш размера. Избери друго отгоре.'
+      : `Докосни страницата там, където трябва ${isWide(cur) ? 'подписът' : 'печатът'}.`;
+  }
+
+  // ---------- save ----------
+  function dataURLBytes(u) {
+    const b = atob(u.split(',')[1]); const a = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
+    return a;
+  }
+
+  async function buildPdf() {
+    const doc = await PDFLib.PDFDocument.load(S.bytes, { updateMetadata: false });
+    const embedded = {};
+    for (const p of S.placed) {
+      const st = stampById(p.stampId); if (!st) continue;
+      if (!embedded[st.id]) embedded[st.id] = await doc.embedPng(dataURLBytes(st.src));
+      const info = S.pages[p.page], vp = info.vp;
+      const [X, Y] = vp.convertToPdfPoint(p.fx * vp.width, p.fy * vp.height);
+      const w = p.mm * PT_PER_MM, h = w * st.aspect;
+      const R = info.rotate || 0, r = R * Math.PI / 180;
+      // rotate counter-clockwise by the page's /Rotate so the stamp reads upright; keep its centre at (X, Y)
+      doc.getPage(p.page).drawImage(embedded[st.id], {
+        x: X - (w / 2 * Math.cos(r) - h / 2 * Math.sin(r)),
+        y: Y - (w / 2 * Math.sin(r) + h / 2 * Math.cos(r)),
+        width: w, height: h, rotate: PDFLib.degrees(R),
+      });
+    }
+    return doc.save();
+  }
+
+  const canShareFiles = (() => {
+    try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] })); }
+    catch (e) { return false; }
+  })();
+
+  async function output(mode) {
+    const btn = mode === 'share' ? $('#shareBtn') : $('#saveBtn');
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Подготвям…';
+    try {
+      const bytes = await buildPdf();
+      const stamped = S.placed.some(p => !isWide(stampById(p.stampId)));
+      const filename = `${S.name} - ${stamped ? 'подпечатан' : 'подписан'}.pdf`;
+      const file = new File([bytes], filename, { type: 'application/pdf' });
+      if (mode === 'share') {
+        try { await navigator.share({ files: [file], title: filename }); }
+        catch (err) { if (err && err.name !== 'AbortError') toast('Споделянето не успя. Използвай „Запази PDF“.'); }
+      } else {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = filename;
+        document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+        toast('Записан в Изтегляния: ' + filename);
+      }
+    } catch (e) {
+      toast(/encrypt/i.test(String(e && e.message)) ? 'PDF-ът е защитен срещу промени и не може да се подпечата.' : 'Грешка при запис: ' + (e && e.message || e));
+    }
+    btn.textContent = label; updateBar();
+  }
+
+  // ---------- misc ----------
+  let toastT;
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3200);
+  }
+
+  $('#openBtn').addEventListener('click', () => $('#pdfInput').click());
+  $('#pdfInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openPdf(f); });
+  $('#stampInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importStamp(f); });
+  $('#saveBtn').addEventListener('click', () => output('save'));
+  $('#shareBtn').addEventListener('click', () => output('share'));
+  $('#smaller').addEventListener('click', () => setSize(+$('#size').value - 1));
+  $('#bigger').addEventListener('click', () => setSize(+$('#size').value + 1));
+  $('#size').addEventListener('input', e => setSize(+e.target.value));
+  $('#removeBtn').addEventListener('click', () => {
+    const id = S.sel; if (!id) return;
+    S.placed = S.placed.filter(p => p.id !== id);
+    document.querySelectorAll(`.stamp[data-id="${id}"]`).forEach(n => n.remove());
+    select(null);
+  });
+  document.addEventListener('keydown', e => {
+    if (!S.sel || e.target.matches('input')) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); $('#removeBtn').click(); }
+    if (e.key === 'Escape') select(null);
+  });
+
+  loadStamps(); renderTray(); updateBar();
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if (new URLSearchParams(location.search).has('shared')) {
+    history.replaceState(null, '', location.pathname);
+    (async () => {
+      try {
+        const cache = await caches.open('shared');
+        const r = await cache.match('shared-pdf');
+        if (!r) return;
+        const name = decodeURIComponent(r.headers.get('X-Name') || '%D0%B4%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82.pdf');
+        const blob = await r.blob();
+        await cache.delete('shared-pdf');
+        openPdf(new File([blob], name, { type: 'application/pdf' }));
+      } catch (e) { toast('Не успях да отворя споделения файл.'); }
+    })();
+  }
+  window.__stamper = { S, openPdf, importStamp, buildPdf, drawStamp, select };
+})();
+</script>
+</body>
+</html>
