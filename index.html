@@ -117,6 +117,11 @@ button{font:inherit;color:inherit}
 .intro span{font-size:14px;color:var(--text)}
 .intro em{font-style:normal;color:var(--muted);display:block;font-size:12.5px;margin-top:2px}
 .loading{color:var(--muted);padding:40px 0}
+.cta{max-width:860px;width:100%;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cta span{color:var(--muted);font-size:14px}
+.cta b{color:var(--text);font-weight:600}
+.btn.big{min-height:52px;padding:0 26px;font-size:16px}
+@media (max-width:520px){.cta .btn.big{flex:1 0 100%;justify-content:center}}
 
 /* bottom bar */
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
@@ -166,6 +171,10 @@ body.dropping .doc{outline:3px dashed var(--ink);outline-offset:-8px;border-radi
     <li><b>2</b><span>Отвори PDF<em>Показва се страницата с „М.П.“ и „Подпис“</em></span></li>
     <li><b>3</b><span>Докосни мястото и запази<em>Влачи, за да местиш; размерът е в mm</em></span></li>
   </ol>
+  <div class="cta">
+    <button class="btn primary big" id="ctaOpen" type="button">Отвори PDF</button>
+    <span>или го провлачи тук с мишката · на телефона: <b>Сподели → Подпечатай</b></span>
+  </div>
   <div class="page sample" aria-label="Пример за документ">
     <span class="sample-tag">Пример</span>
     <div class="sample-body">
@@ -535,6 +544,7 @@ body.dropping .doc{outline:3px dashed var(--ink);outline-offset:-8px;border-radi
   }
 
   $('#openBtn').addEventListener('click', () => $('#pdfInput').click());
+  $('#ctaOpen').addEventListener('click', () => $('#pdfInput').click());
   $('#pdfInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openPdf(f); });
   $('#stampInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importStamp(f); });
   $('#saveBtn').addEventListener('click', () => output('save'));
