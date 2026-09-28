@@ -110,7 +110,7 @@ button{font:inherit;color:inherit}
 .s-sign{margin-top:3em!important;display:flex;align-items:flex-end;gap:.6em}
 .s-box{display:inline-grid;place-items:center;width:30cqw;height:9cqw;border:2px dashed #2140a8;border-radius:6px;color:#2140a8;font-size:.85em;font-weight:600;margin-bottom:-.4em}
 .s-mp{position:relative;display:flex;align-items:center;gap:2em}
-.s-ring{width:19cqw;height:19cqw;border:2px dashed #2140a8;border-radius:50%;display:grid;place-items:center;color:#2140a8;font-size:.85em;font-weight:600;text-align:center;line-height:1.2;margin-top:-6cqw}
+.s-ring{width:19cqw;height:19cqw;border:2px dashed #2140a8;border-radius:50%;display:grid;place-items:center;color:#2140a8;font-size:.85em;font-weight:600;text-align:center;line-height:1.2;margin-top:-1cqw}
 .intro{max-width:860px;width:100%;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0}
 .intro li{list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
 .intro b{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ink-soft);color:var(--ink);font-size:13px}
@@ -139,6 +139,7 @@ button{font:inherit;color:inherit}
   .actions .btn{flex:1;justify-content:center}
   .tray-label small{display:none}
 }
+body.dropping .doc{outline:3px dashed var(--ink);outline-offset:-8px;border-radius:12px}
 @media (prefers-reduced-motion:reduce){.chip.add.pulse{animation:none}.toast{transition:none}}
 </style>
 </head>
@@ -312,7 +313,8 @@ button{font:inherit;color:inherit}
     const hits = [];
     for (const it of tc.items) {
       const str = (it.str || '').trim();
-      if (!str || !(HIT_RE.test(str) || (str.length <= 40 && WORD_RE.test(str)))) continue;
+      const label = str.replace(/[.…_\-–—]{3,}.*$/, '').trim();   // "Подпис: ........" -> "Подпис:"
+      if (!str || !(HIT_RE.test(str) || (label.length <= 40 && WORD_RE.test(label)))) continue;
       const [a, b, c, d, e, f] = it.transform;
       const la = Math.hypot(a, b) || 1, lc = Math.hypot(c, d) || la;
       const ux = a / la, uy = b / la, vx = c / lc, vy = d / lc, w = it.width, fs = lc;
@@ -558,6 +560,26 @@ button{font:inherit;color:inherit}
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+  // desktop (Mac/Windows): PDF opened with the installed app from Finder / Explorer
+  if ('launchQueue' in window) {
+    window.launchQueue.setConsumer(async params => {
+      const h = params.files && params.files[0];
+      if (h) openPdf(await h.getFile());
+    });
+  }
+  // drag & drop: a PDF opens, an image becomes a stamp/signature
+  const isFileDrag = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  document.addEventListener('dragover', e => { if (isFileDrag(e)) { e.preventDefault(); document.body.classList.add('dropping'); } });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dropping'); });
+  document.addEventListener('drop', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); document.body.classList.remove('dropping');
+    for (const f of e.dataTransfer.files) {
+      if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) { openPdf(f); break; }
+      if (f.type.startsWith('image/')) importStamp(f);
+    }
+  });
   if (new URLSearchParams(location.search).has('shared')) {
     history.replaceState(null, '', location.pathname);
     (async () => {
